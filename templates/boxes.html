@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Available Surprise Boxes</title>
+</head>
+<body>
+
+    <h1>Available Surprise Boxes</h1>
+
+    {% for box in boxes %}
+
+        <hr>
+
+        <h2>{{ box[2] }}</h2>
+
+        <p>{{ box[3] }}</p>
+
+        <p>
+            Original Price: ${{ box[4] }}
+        </p>
+
+        <p>
+            Discounted Price: ${{ box[5] }}
+        </p>
+
+        <p>
+            Quantity Available: {{ box[6] }}
+        </p>
+
+        <a href="/reserve/{{ box[0] }}">
+            Reserve Box
+        </a>
+
+    {% endfor %}
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Orders - EcoEat</title>
+</head>
+<body>
+    <h1>My Orders</h1>
+    <a href="/dashboard">← Back to Dashboard</a>
+    <hr>
+    {% if orders %}
+        <table border="1" cellpadding="8">
+            <tr>
+                <th>Order ID</th>
+                <th>Surprise Box</th>
+                <th>Total Price</th>
+                <th>Order Date</th>
+                <th>Status</th>
+            </tr>
+            {% for order in orders %}
+            <tr>
+                <td>{{ order[0] }}</td>
+                <td>{{ order[1] }}</td>
+                <td>${{ order[2] }}</td>
+                <td>{{ order[3] }}</td>
+                <td>{{ order[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>You haven't made any reservations yet.</p>
+    {% endif %}
+</body>
+</html>
