@@ -152,11 +152,11 @@ def reserve_box(box_id):
 
     cur = mysql.connection.cursor()
 
-    # Get box information
+    # Get box information (must be available and in stock)
     query = """
     SELECT discounted_price, quantity_available
     FROM Surprise_Boxes
-    WHERE box_id = %s
+    WHERE box_id = %s AND status = 'Available'
     """
 
     cur.execute(query, (box_id,))
@@ -164,7 +164,7 @@ def reserve_box(box_id):
     box = cur.fetchone()
 
     if box is None:
-        return "Box not found"
+        return "Box not found or not available"
 
     discounted_price = box[0]
     quantity_available = box[1]
@@ -172,11 +172,11 @@ def reserve_box(box_id):
     if quantity_available <= 0:
         return "Box is out of stock"
 
-    # Create reservation
+    # Create reservation with Reserved status
     insert_query = """
     INSERT INTO Orders
-    (student_id, box_id, total_price)
-    VALUES (%s, %s, %s)
+    (student_id, box_id, total_price, order_status)
+    VALUES (%s, %s, %s, 'Reserved')
     """
 
     cur.execute(
@@ -219,6 +219,47 @@ def orders():
     cur.close()
 
     return render_template('orders.html', orders=orders)
+
+# =========================
+# CANCEL RESERVATION
+# =========================
+@app.route('/cancel/<int:order_id>')
+def cancel_order(order_id):
+    if 'student_id' not in session:
+        return redirect('/login')
+
+    cur = mysql.connection.cursor()
+
+    cur.execute("""
+        SELECT Orders.order_status, Orders.box_id
+        FROM Orders
+        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
+        WHERE Orders.order_id = %s AND Orders.student_id = %s
+    """, (order_id, session['student_id']))
+    order = cur.fetchone()
+
+    if not order:
+        cur.close()
+        return "Order not found"
+
+    if order[0] != 'Reserved':
+        cur.close()
+        return "Only reserved orders can be cancelled"
+
+    box_id = order[1]
+
+    cur.execute("UPDATE Orders SET order_status = 'Cancelled' WHERE order_id = %s", (order_id,))
+    cur.execute("""
+        UPDATE Surprise_Boxes
+        SET quantity_available = quantity_available + 1
+        WHERE box_id = %s
+    """, (box_id,))
+
+    mysql.connection.commit()
+    cur.close()
+
+    return redirect('/orders')
+
 # =========================
 # VENDOR LOGIN
 # =========================
@@ -251,7 +292,10 @@ def vendor_dashboard():
 
     # Fetch this vendor's surprise boxes
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM Surprise_Boxes WHERE vendor_id = %s", (session['vendor_id'],))
+    cur.execute("""
+        SELECT * FROM Surprise_Boxes
+        WHERE vendor_id = %s AND status != 'Deleted'
+    """, (session['vendor_id'],))
     boxes = cur.fetchall()
     cur.close()
 
@@ -334,6 +378,8 @@ def edit_box(box_id):
     cur.close()
     if not box:
         return "Box not found or you don't own it"
+    if box[10] == 'Deleted':
+        return "This box has been deactivated and cannot be edited"
     return render_template('edit_box.html', box=box)
 
 # =========================
@@ -345,11 +391,110 @@ def delete_box(box_id):
         return redirect('/vendor/login')
 
     cur = mysql.connection.cursor()
-    # Optional: check ownership
-    cur.execute("DELETE FROM Surprise_Boxes WHERE box_id=%s AND vendor_id=%s", (box_id, session['vendor_id']))
+    cur.execute("""
+        UPDATE Surprise_Boxes SET status = 'Deleted'
+        WHERE box_id=%s AND vendor_id=%s
+    """, (box_id, session['vendor_id']))
     mysql.connection.commit()
     cur.close()
     return redirect('/vendor/dashboard')
+
+# =========================
+# VENDOR: VIEW RESERVATIONS
+# =========================
+@app.route('/vendor/reservations')
+def vendor_reservations():
+    # Check if vendor is logged in
+    if 'vendor_id' not in session:
+        return redirect('/vendor/login')
+    
+    cur = mysql.connection.cursor()
+    
+    # Get all orders for this vendor's boxes, with student info
+    query = """
+        SELECT Orders.order_id, 
+               Orders.order_date, 
+               Orders.order_status,
+               Students.full_name,
+               Students.student_id,
+               Surprise_Boxes.title,
+               Surprise_Boxes.eco_points_reward
+        FROM Orders
+        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
+        JOIN Students ON Orders.student_id = Students.student_id
+        WHERE Surprise_Boxes.vendor_id = %s
+        ORDER BY Orders.order_date DESC
+    """
+    
+    cur.execute(query, (session['vendor_id'],))
+    reservations = cur.fetchall()
+    cur.close()
+    
+    return render_template('vendor_reservations.html', 
+                         reservations=reservations, 
+                         name=session['vendor_name'])
+
+# =========================
+# VENDOR: MARK RESERVATION AS COMPLETED
+# =========================
+@app.route('/vendor/complete_reservation/<int:order_id>')
+def complete_reservation(order_id):
+    # Check if vendor is logged in
+    if 'vendor_id' not in session:
+        return redirect('/vendor/login')
+    
+    cur = mysql.connection.cursor()
+    
+    # First, verify this order belongs to this vendor's box
+    # (Security check - prevent vendors from completing orders for other vendors)
+    verify_query = """
+        SELECT Orders.order_id, Orders.order_status,
+               Surprise_Boxes.eco_points_reward, 
+               Orders.student_id
+        FROM Orders
+        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
+        WHERE Orders.order_id = %s AND Surprise_Boxes.vendor_id = %s
+    """
+    
+    cur.execute(verify_query, (order_id, session['vendor_id']))
+    order = cur.fetchone()
+    
+    if not order:
+        cur.close()
+        return "Order not found or you don't have permission to modify it"
+    
+    if order[1] == 'Completed':
+        cur.close()
+        return "This reservation has already been completed"
+
+    if order[1] != 'Reserved':
+        cur.close()
+        return "Only reserved orders can be marked as completed"
+
+    # Update order status to 'Completed'
+    update_query = "UPDATE Orders SET order_status = 'Completed' WHERE order_id = %s"
+    cur.execute(update_query, (order_id,))
+    
+    # Award eco points to student
+    eco_points = order[2]  # eco_points_reward from Surprise_Boxes
+    student_id = order[3]
+    
+    # Update student's total eco points
+    update_points = "UPDATE Students SET eco_points = eco_points + %s WHERE student_id = %s"
+    cur.execute(update_points, (eco_points, student_id))
+    
+    # Log the points transaction
+    log_query = """
+        INSERT INTO Eco_Point_Log (student_id, points_earned, reason)
+        VALUES (%s, %s, %s)
+    """
+    reason = f"Completed reservation #{order_id} - Surprise Box pickup confirmed"
+    cur.execute(log_query, (student_id, eco_points, reason))
+    
+    mysql.connection.commit()
+    cur.close()
+    
+    return redirect('/vendor/reservations')
 # =========================
 # TEST DATABASE CONNECTION
 # =========================
