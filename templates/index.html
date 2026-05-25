@@ -1,14 +1,18 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <title>EcoEat</title>
-</head>
-<body>
+{% block title %}Home{% endblock %}
 
+{% block content %}
+<div class="text-center mt-5">
     <h1>Welcome to EcoEat</h1>
-
-    <p>Campus Surplus Food Rescue Platform</p>
-
-</body>
-</html>
+    <p class="lead">Campus Surplus Food Rescue Platform</p>
+    <hr class="w-50 mx-auto">
+    <p>Reduce food waste, save money, and earn eco points!</p>
+    <div class="mt-4 d-flex flex-wrap justify-content-center gap-2">
+        <a href="/login" class="btn btn-success">Student Login</a>
+        <a href="/register" class="btn btn-outline-success">Register</a>
+        <a href="/vendor/login" class="btn btn-outline-success">Vendor Login</a>
+        <a href="/admin/login" class="btn btn-dark">Admin</a>
+    </div>
+</div>
+{% endblock %}

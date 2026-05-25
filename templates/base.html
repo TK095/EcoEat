@@ -22,11 +22,16 @@
                         <li class="nav-item"><a class="nav-link" href="/orders">My Orders</a></li>
                         <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
                     {% elif session.vendor_id %}
-                        <li class="nav-item"><a class="nav-link" href="/vendor/dashboard">Vendor Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/vendor/dashboard">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/vendor/reservations">Reservations</a></li>
                         <li class="nav-item"><a class="nav-link" href="/vendor/logout">Logout</a></li>
+                    {% elif session.admin_id %}
+                        <li class="nav-item"><a class="nav-link" href="/admin/dashboard">Analytics</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/logout">Logout</a></li>
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="/login">Student Login</a></li>
                         <li class="nav-item"><a class="nav-link" href="/vendor/login">Vendor Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/login">Admin</a></li>
                         <li class="nav-item"><a class="nav-link" href="/register">Register</a></li>
                     {% endif %}
                 </ul>
@@ -35,6 +40,16 @@
     </nav>
 
     <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </div>
 

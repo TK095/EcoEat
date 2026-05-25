@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, flash
+from MySQLdb import IntegrityError
 from db_config import mysql
 
 app = Flask(__name__)
@@ -27,26 +28,31 @@ def home():
 def register():
 
     if request.method == 'POST':
-
         full_name = request.form['full_name']
         email = request.form['email']
         password = request.form['password']
 
         cur = mysql.connection.cursor()
+        cur.execute("SELECT student_id FROM Students WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close()
+            flash('Email already registered. Please login or use a different email.', 'danger')
+            return redirect('/register')
 
-        query = """
-        INSERT INTO Students (full_name, email, password)
-        VALUES (%s, %s, %s)
-        """
+        try:
+            cur.execute("""
+                INSERT INTO Students (full_name, email, password)
+                VALUES (%s, %s, %s)
+            """, (full_name, email, password))
+            mysql.connection.commit()
+        except IntegrityError:
+            mysql.connection.rollback()
+            flash('Email already registered. Please login or use a different email.', 'danger')
+            return redirect('/register')
+        finally:
+            cur.close()
 
-        values = (full_name, email, password)
-
-        cur.execute(query, values)
-
-        mysql.connection.commit()
-
-        cur.close()
-
+        flash('Registration successful! Please log in.', 'success')
         return redirect('/login')
 
     return render_template('register.html')
@@ -83,7 +89,8 @@ def login():
             return redirect('/dashboard')
 
         else:
-            return "Invalid email or password"
+            flash('Invalid email or password.', 'danger')
+            return redirect('/login')
 
     return render_template('login.html')
 
@@ -96,9 +103,16 @@ def dashboard():
     if 'student_id' not in session:
         return redirect('/login')
 
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT eco_points FROM Students WHERE student_id = %s", (session['student_id'],))
+    row = cur.fetchone()
+    cur.close()
+    eco_points = row[0] if row else 0
+
     return render_template(
         'dashboard.html',
-        name=session['student_name']
+        name=session['student_name'],
+        eco_points=eco_points
     )
 
 # =========================
@@ -164,40 +178,46 @@ def reserve_box(box_id):
     box = cur.fetchone()
 
     if box is None:
-        return "Box not found or not available"
+        cur.close()
+        flash('Box not found or not available.', 'danger')
+        return redirect('/boxes')
 
     discounted_price = box[0]
     quantity_available = box[1]
 
     if quantity_available <= 0:
-        return "Box is out of stock"
+        cur.close()
+        flash('Box is out of stock.', 'warning')
+        return redirect('/boxes')
 
-    # Create reservation with Reserved status
-    insert_query = """
-    INSERT INTO Orders
-    (student_id, box_id, total_price, order_status)
-    VALUES (%s, %s, %s, 'Reserved')
-    """
+    try:
+        cur.execute("""
+            INSERT INTO Orders
+            (student_id, box_id, total_price, order_status)
+            VALUES (%s, %s, %s, 'Reserved')
+        """, (student_id, box_id, discounted_price))
 
-    cur.execute(
-        insert_query,
-        (student_id, box_id, discounted_price)
-    )
+        cur.execute("""
+            UPDATE Surprise_Boxes
+            SET quantity_available = quantity_available - 1
+            WHERE box_id = %s AND quantity_available > 0 AND status = 'Available'
+        """, (box_id,))
 
-    # Reduce quantity
-    update_query = """
-    UPDATE Surprise_Boxes
-    SET quantity_available = quantity_available - 1
-    WHERE box_id = %s
-    """
+        if cur.rowcount == 0:
+            mysql.connection.rollback()
+            flash('Could not reserve — box may be out of stock. Please try again.', 'warning')
+            return redirect('/boxes')
 
-    cur.execute(update_query, (box_id,))
+        mysql.connection.commit()
+        flash('Reservation successful! View it in My Orders.', 'success')
+    except Exception:
+        mysql.connection.rollback()
+        flash('Reservation failed. Please try again.', 'danger')
+        return redirect('/boxes')
+    finally:
+        cur.close()
 
-    mysql.connection.commit()
-
-    cur.close()
-
-    return redirect('/boxes')
+    return redirect('/orders')
 
 # =========================
 # STUDENT ORDER HISTORY
@@ -240,11 +260,13 @@ def cancel_order(order_id):
 
     if not order:
         cur.close()
-        return "Order not found"
+        flash('Order not found.', 'danger')
+        return redirect('/orders')
 
     if order[0] != 'Reserved':
         cur.close()
-        return "Only reserved orders can be cancelled"
+        flash('Only reserved orders can be cancelled.', 'warning')
+        return redirect('/orders')
 
     box_id = order[1]
 
@@ -258,6 +280,7 @@ def cancel_order(order_id):
     mysql.connection.commit()
     cur.close()
 
+    flash('Reservation cancelled.', 'success')
     return redirect('/orders')
 
 # =========================
@@ -279,7 +302,8 @@ def vendor_login():
             session['vendor_name'] = vendor[1]
             return redirect('/vendor/dashboard')
         else:
-            return "Invalid vendor credentials"
+            flash('Invalid vendor credentials.', 'danger')
+            return redirect('/vendor/login')
     return render_template('vendor_login.html')
 
 # =========================
@@ -306,8 +330,7 @@ def vendor_dashboard():
 # =========================
 @app.route('/vendor/logout')
 def vendor_logout():
-    session.pop('vendor_id', None)
-    session.pop('vendor_name', None)
+    session.clear()
     return redirect('/vendor/login')
 
 # =========================
@@ -357,7 +380,8 @@ def edit_box(box_id):
         existing = cur.fetchone()
         if not existing or existing[0] == 'Deleted':
             cur.close()
-            return "This box has been deactivated and cannot be edited"
+            flash('This box has been deactivated and cannot be edited.', 'warning')
+            return redirect('/vendor/dashboard')
 
         title = request.form['title']
         description = request.form['description']
@@ -384,9 +408,11 @@ def edit_box(box_id):
     box = cur.fetchone()
     cur.close()
     if not box:
-        return "Box not found or you don't own it"
+        flash('Box not found or you do not own it.', 'danger')
+        return redirect('/vendor/dashboard')
     if box[10] == 'Deleted':
-        return "This box has been deactivated and cannot be edited"
+        flash('This box has been deactivated and cannot be edited.', 'warning')
+        return redirect('/vendor/dashboard')
     return render_template('edit_box.html', box=box)
 
 # =========================
@@ -399,11 +425,26 @@ def delete_box(box_id):
 
     cur = mysql.connection.cursor()
     cur.execute("""
+        SELECT COUNT(*) FROM Orders
+        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
+        WHERE Surprise_Boxes.box_id = %s
+          AND Surprise_Boxes.vendor_id = %s
+          AND Orders.order_status = 'Reserved'
+    """, (box_id, session['vendor_id']))
+    reserved_count = cur.fetchone()[0]
+
+    if reserved_count > 0:
+        cur.close()
+        flash('Cannot deactivate: this box has active reserved orders. Complete or wait for cancellations first.', 'warning')
+        return redirect('/vendor/dashboard')
+
+    cur.execute("""
         UPDATE Surprise_Boxes SET status = 'Deleted'
         WHERE box_id=%s AND vendor_id=%s
     """, (box_id, session['vendor_id']))
     mysql.connection.commit()
     cur.close()
+    flash('Surprise box deactivated.', 'success')
     return redirect('/vendor/dashboard')
 
 # =========================
@@ -468,40 +509,145 @@ def complete_reservation(order_id):
     
     if not order:
         cur.close()
-        return "Order not found or you don't have permission to modify it"
-    
+        flash('Order not found or you do not have permission to modify it.', 'danger')
+        return redirect('/vendor/reservations')
+
     if order[1] == 'Completed':
         cur.close()
-        return "This reservation has already been completed"
+        flash('This reservation has already been completed.', 'info')
+        return redirect('/vendor/reservations')
 
     if order[1] != 'Reserved':
         cur.close()
-        return "Only reserved orders can be marked as completed"
+        flash('Only reserved orders can be marked as completed.', 'warning')
+        return redirect('/vendor/reservations')
 
-    # Update order status to 'Completed'
-    update_query = "UPDATE Orders SET order_status = 'Completed' WHERE order_id = %s"
-    cur.execute(update_query, (order_id,))
-    
-    # Award eco points to student
-    eco_points = order[2]  # eco_points_reward from Surprise_Boxes
+    cur.execute("""
+        UPDATE Orders SET order_status = 'Completed'
+        WHERE order_id = %s AND order_status = 'Reserved'
+    """, (order_id,))
+
+    if cur.rowcount == 0:
+        cur.close()
+        flash('Order was already completed or cancelled.', 'warning')
+        return redirect('/vendor/reservations')
+
+    eco_points = order[2]
     student_id = order[3]
-    
-    # Update student's total eco points
-    update_points = "UPDATE Students SET eco_points = eco_points + %s WHERE student_id = %s"
-    cur.execute(update_points, (eco_points, student_id))
-    
-    # Log the points transaction
-    log_query = """
+
+    cur.execute("UPDATE Students SET eco_points = eco_points + %s WHERE student_id = %s",
+                (eco_points, student_id))
+    reason = f"Completed reservation #{order_id} - Surprise Box pickup confirmed"
+    cur.execute("""
         INSERT INTO Eco_Point_Log (student_id, points_earned, reason)
         VALUES (%s, %s, %s)
-    """
-    reason = f"Completed reservation #{order_id} - Surprise Box pickup confirmed"
-    cur.execute(log_query, (student_id, eco_points, reason))
-    
+    """, (student_id, eco_points, reason))
+
     mysql.connection.commit()
     cur.close()
-    
+
+    flash(f'Pickup confirmed. {eco_points} eco points awarded to the student.', 'success')
     return redirect('/vendor/reservations')
+
+# =========================
+# ADMIN LOGIN
+# =========================
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM Admins WHERE username = %s AND password = %s", (username, password))
+        admin = cur.fetchone()
+        cur.close()
+
+        if admin:
+            session.clear()
+            session['admin_id'] = admin[0]
+            session['admin_name'] = admin[1]  # username
+            return redirect('/admin/dashboard')
+        flash('Invalid admin credentials.', 'danger')
+        return redirect('/admin/login')
+
+    return render_template('admin_login.html')
+
+# =========================
+# ADMIN DASHBOARD
+# =========================
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if 'admin_id' not in session:
+        return redirect('/admin/login')
+
+    cur = mysql.connection.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM Orders WHERE order_status = 'Completed'")
+    meals_rescued = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(points_earned), 0) FROM Eco_Point_Log")
+    eco_points_distributed = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM Students")
+    total_students = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM Vendors")
+    total_vendors = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM Surprise_Boxes WHERE status != 'Deleted'")
+    active_boxes = cur.fetchone()[0]
+
+    cur.execute("""
+        SELECT order_status, COUNT(*) AS cnt
+        FROM Orders
+        GROUP BY order_status
+    """)
+    order_stats = cur.fetchall()
+
+    cur.execute("""
+        SELECT full_name, eco_points
+        FROM Students
+        ORDER BY eco_points DESC
+        LIMIT 5
+    """)
+    top_students = cur.fetchall()
+
+    cur.execute("""
+        SELECT Vendors.vendor_name, COUNT(*) AS completed_orders
+        FROM Orders
+        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
+        JOIN Vendors ON Surprise_Boxes.vendor_id = Vendors.vendor_id
+        WHERE Orders.order_status = 'Completed'
+        GROUP BY Vendors.vendor_id, Vendors.vendor_name
+        ORDER BY completed_orders DESC
+        LIMIT 5
+    """)
+    top_vendors = cur.fetchall()
+
+    cur.close()
+
+    return render_template(
+        'admin_dashboard.html',
+        name=session['admin_name'],
+        meals_rescued=meals_rescued,
+        eco_points_distributed=eco_points_distributed,
+        total_students=total_students,
+        total_vendors=total_vendors,
+        active_boxes=active_boxes,
+        order_stats=order_stats,
+        top_students=top_students,
+        top_vendors=top_vendors
+    )
+
+# =========================
+# ADMIN LOGOUT
+# =========================
+@app.route('/admin/logout')
+def admin_logout():
+    session.clear()
+    return redirect('/admin/login')
+
 # =========================
 # TEST DATABASE CONNECTION
 # =========================

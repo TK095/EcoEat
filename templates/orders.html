@@ -38,6 +38,8 @@
                                             <span class="badge bg-success">Completed</span>
                                         {% elif order[4] == 'Cancelled' %}
                                             <span class="badge bg-secondary">Cancelled</span>
+                                        {% elif not order[4] %}
+                                            <span class="badge bg-secondary">Unknown</span>
                                         {% else %}
                                             <span class="badge bg-secondary">{{ order[4] }}</span>
                                         {% endif %}

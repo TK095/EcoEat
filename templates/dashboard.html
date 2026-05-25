@@ -1,27 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
+{% extends "base.html" %}
 
-    <h1>Welcome, {{ name }}</h1>
+{% block title %}Student Dashboard{% endblock %}
 
-    <h3>EcoEat Student Dashboard</h3>
-
-    <ul>
-        <li>
-            <a href="/boxes">Browse Surprise Boxes</a>
-        </li>
-
-        <li>
-            <a href="/orders">My Orders</a>
-        </li>
-
-        <li>
-            <a href="/logout">Logout</a>
-        </li>
-    </ul>
-
-</body>
-</html>
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h3>Welcome, {{ name }}!</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success mb-4">
+                    <h5 class="mb-1">Eco Points: <strong>{{ eco_points }}</strong></h5>
+                    <small class="text-muted">Earn more by completing surprise box pickups.</small>
+                </div>
+                <h5>EcoEat Student Dashboard</h5>
+                <ul class="list-group">
+                    <li class="list-group-item"><a href="/boxes" class="text-decoration-none">📦 Browse Surprise Boxes</a></li>
+                    <li class="list-group-item"><a href="/orders" class="text-decoration-none">📋 My Orders</a></li>
+                    <li class="list-group-item"><a href="/logout" class="text-decoration-none text-danger">🚪 Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
