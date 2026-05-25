@@ -352,6 +352,13 @@ def edit_box(box_id):
 
     cur = mysql.connection.cursor()
     if request.method == 'POST':
+        cur.execute("SELECT status FROM Surprise_Boxes WHERE box_id=%s AND vendor_id=%s",
+                    (box_id, session['vendor_id']))
+        existing = cur.fetchone()
+        if not existing or existing[0] == 'Deleted':
+            cur.close()
+            return "This box has been deactivated and cannot be edited"
+
         title = request.form['title']
         description = request.form['description']
         original_price = float(request.form['original_price'])

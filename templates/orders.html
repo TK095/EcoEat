@@ -1,33 +1,73 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>My Orders - EcoEat</title>
-</head>
-<body>
-    <h1>My Orders</h1>
-    <a href="/dashboard">← Back to Dashboard</a>
-    <hr>
-    {% if orders %}
-        <table border="1" cellpadding="8">
-            <tr>
-                <th>Order ID</th>
-                <th>Surprise Box</th>
-                <th>Total Price</th>
-                <th>Order Date</th>
-                <th>Status</th>
-            </tr>
-            {% for order in orders %}
-            <tr>
-                <td>{{ order[0] }}</td>
-                <td>{{ order[1] }}</td>
-                <td>${{ order[2] }}</td>
-                <td>{{ order[3] }}</td>
-                <td>{{ order[4] }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>You haven't made any reservations yet.</p>
-    {% endif %}
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">My Orders</h4>
+                <a href="/dashboard" class="btn btn-sm btn-light">← Back to Dashboard</a>
+            </div>
+            <div class="card-body">
+                {% if orders %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead class="table-success">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Surprise Box</th>
+                                    <th>Total Price</th>
+                                    <th>Order Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders %}
+                                <tr>
+                                    <td>#{{ order[0] }}</td>
+                                    <td>{{ order[1] }}</td>
+                                    <td>${{ "%.2f"|format(order[2]) }}</td>
+                                    <td>{{ order[3] }}</td>
+                                    <td>
+                                        {% if order[4] == 'Reserved' %}
+                                            <span class="badge bg-warning text-dark">Reserved</span>
+                                        {% elif order[4] == 'Completed' %}
+                                            <span class="badge bg-success">Completed</span>
+                                        {% elif order[4] == 'Cancelled' %}
+                                            <span class="badge bg-secondary">Cancelled</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ order[4] }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if order[4] == 'Reserved' %}
+                                            <a href="/cancel/{{ order[0] }}"
+                                               class="btn btn-sm btn-danger"
+                                               onclick="return confirm('Cancel this reservation? The box will be returned to stock.')">
+                                                Cancel
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning text-center">
+                        <strong>No orders yet!</strong><br>
+                        Browse surprise boxes to make your first reservation.
+                        <hr>
+                        <a href="/boxes" class="btn btn-success">Browse Surprise Boxes</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
