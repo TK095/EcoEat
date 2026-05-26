@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block body_class %}{% block auth_body_class %}role-guest{% endblock %}{% endblock %}
+
+{% block content %}
+<div class="auth-shell auth-shell--{{ auth_role | default('student') }}">
+    <div class="container">
+        <div class="row justify-content-center w-100 mx-0">
+            <div class="{% if auth_wide %}col-md-6 col-lg-5{% else %}col-md-5 col-lg-4{% endif %} col-11 px-0">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-icon">
+                    <i class="bi {{ auth_icon | default('bi-person-circle') }}"></i>
+                </div>
+                <h1 class="auth-title">{{ auth_title }}</h1>
+                {% if auth_subtitle %}
+                <p class="auth-subtitle">{{ auth_subtitle }}</p>
+                {% endif %}
+            </div>
+            <div class="auth-body">
+                {% block auth_form %}{% endblock %}
+                {% block auth_footer %}
+                <div class="auth-footer">
+                    {% block auth_footer_content %}{% endblock %}
+                </div>
+                {% endblock %}
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

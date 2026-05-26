@@ -5,36 +5,88 @@
 {% block body_class %}role-student{% endblock %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <h1 class="page-heading mb-0"><i class="bi bi-receipt me-2"></i>My orders</h1>
+    <a href="/dashboard" class="btn btn-eco-ghost btn-eco-sm">Dashboard</a>
+</div>
+
+{% set active = orders|selectattr('4', 'equalto', 'Reserved')|list if orders else [] %}
+{% set history = orders|rejectattr('4', 'equalto', 'Reserved')|list if orders else [] %}
+
+{% if active %}
+<section class="mb-5">
+    <h2 class="h5 mb-3"><i class="bi bi-hourglass-split me-2"></i>Active pickups</h2>
+    <p class="small text-muted mb-3">Go to the pickup location during the window below. The vendor will mark your order complete when you collect your box.</p>
+    <div class="row g-3">
+        {% for order in active %}
+        <div class="col-md-6 col-lg-4">
+            <div class="eco-card order-active-card h-100">
+                <div class="eco-card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge badge-reserved">Reserved</span>
+                        <span class="small text-muted">#{{ order[0] }}</span>
+                    </div>
+                    <h5 class="h6 mb-1">{{ order[1] }}</h5>
+                    <p class="small text-muted mb-2">{{ order[6] }}</p>
+                    <ul class="list-unstyled small pickup-meta mb-3">
+                        <li><i class="bi bi-geo-alt me-1"></i><strong>Pickup:</strong> {{ order[7] or 'Ask vendor' }}</li>
+                        <li><i class="bi bi-clock me-1"></i>{{ order[8] }} – {{ order[9] }}</li>
+                        <li><i class="bi bi-box me-1"></i>Qty: {{ order[5] or 1 }}</li>
+                        <li><i class="bi bi-key me-1"></i><strong>Pickup code:</strong> <span class="pickup-code">{{ order[10] }}</span></li>
+                        <li><i class="bi bi-cash me-1"></i>${{ "%.2f"|format(order[2]) }}</li>
+                    </ul>
+                    <a href="/cancel/{{ order[0] }}"
+                       class="btn btn-eco-danger btn-eco-sm w-100"
+                       onclick="return confirm('Cancel this reservation? Stock will be restored.')">
+                        Cancel reservation
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if not orders %}
 <div class="eco-card">
-    <div class="eco-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>My orders</h4>
-        <a href="/dashboard" class="btn btn-eco-ghost btn-eco-sm">Dashboard</a>
+    <div class="eco-card-body text-center py-4">
+        <i class="bi bi-journal-x display-4 text-muted mb-3 d-block"></i>
+        <p class="text-muted mb-3">You have no orders yet.</p>
+        <a href="/boxes" class="btn btn-eco">Browse surprise boxes</a>
+    </div>
+</div>
+{% else %}
+<div class="eco-card">
+    <div class="eco-card-header">
+        <h4 class="mb-0">Order history</h4>
     </div>
     <div class="eco-card-body">
-        {% if orders %}
+        {% if history %}
         <div class="table-responsive">
             <table class="table eco-table align-middle">
                 <thead>
                     <tr>
                         <th>Order</th>
                         <th>Box</th>
+                        <th>Vendor</th>
+                        <th>Qty</th>
                         <th>Price</th>
                         <th>Date</th>
                         <th>Status</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for order in orders %}
+                    {% for order in history %}
                     <tr>
                         <td><strong>#{{ order[0] }}</strong></td>
                         <td>{{ order[1] }}</td>
+                        <td class="small">{{ order[6] }}</td>
+                        <td>{{ order[5] or 1 }}</td>
                         <td>${{ "%.2f"|format(order[2]) }}</td>
                         <td class="small text-muted">{{ order[3] }}</td>
                         <td>
-                            {% if order[4] == 'Reserved' %}
-                            <span class="badge badge-reserved">Reserved</span>
-                            {% elif order[4] == 'Completed' %}
+                            {% if order[4] == 'Completed' %}
                             <span class="badge badge-completed">Completed</span>
                             {% elif order[4] == 'Cancelled' %}
                             <span class="badge badge-cancelled">Cancelled</span>
@@ -42,29 +94,15 @@
                             <span class="badge badge-cancelled">{{ order[4] or 'Unknown' }}</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if order[4] == 'Reserved' %}
-                            <a href="/cancel/{{ order[0] }}"
-                               class="btn btn-eco-danger btn-eco-sm"
-                               onclick="return confirm('Cancel this reservation? Stock will be restored.')">
-                                Cancel
-                            </a>
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="text-center py-4">
-            <i class="bi bi-journal-x display-4 text-muted mb-3 d-block"></i>
-            <p class="text-muted mb-3">You have no orders yet.</p>
-            <a href="/boxes" class="btn btn-eco">Browse surprise boxes</a>
-        </div>
+        {% elif active %}
+        <p class="text-muted mb-0 small">No completed or cancelled orders yet.</p>
         {% endif %}
     </div>
 </div>
+{% endif %}
 {% endblock %}

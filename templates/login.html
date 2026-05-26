@@ -1,33 +1,34 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
 {% block title %}Login{% endblock %}
 
-{% block body_class %}role-guest{% endblock %}
+{% block auth_body_class %}role-guest{% endblock %}
+{% set auth_role = 'student' %}
+{% set auth_icon = 'bi-person-circle' %}
+{% set auth_title = 'Student sign in' %}
+{% set auth_subtitle = 'Reserve discounted surprise boxes and earn eco points.' %}
 
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5 col-lg-4">
-        <div class="eco-card">
-            <div class="eco-card-header">
-                <h4 class="mb-0">Student login</h4>
-            </div>
-            <div class="eco-card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" required autocomplete="email">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-eco w-100">Sign in</button>
-                </form>
-                <p class="mt-3 mb-0 text-center text-muted small">
-                    New here? <a href="/register" style="color: var(--primary);">Create an account</a>
-                </p>
-            </div>
+{% block auth_form %}
+<form method="POST">
+    <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input type="email" name="email" id="email" class="form-control" required autocomplete="email" placeholder="you@university.edu">
         </div>
     </div>
-</div>
+    <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" name="password" id="password" class="form-control" required placeholder="Your password">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-eco btn-eco-primary w-100">Sign in</button>
+</form>
+{% endblock %}
+
+{% block auth_footer_content %}
+<p>New here? <a href="/register" class="link-eco">Create an account</a></p>
+<p class="mt-2"><a href="/" class="auth-back-link text-decoration-none">← Back to home</a></p>
 {% endblock %}

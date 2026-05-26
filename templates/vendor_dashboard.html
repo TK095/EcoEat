@@ -5,96 +5,96 @@
 {% block body_class %}role-vendor{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Welcome, {{ name }}!</h4>
-                <a href="/vendor/logout" class="btn btn-sm btn-light text-danger">🚪 Logout</a>
+<div class="eco-card mb-4">
+    <div class="eco-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h4 class="mb-0"><i class="bi bi-shop me-2"></i>Welcome, {{ name }}!</h4>
+        <a href="/vendor/logout" class="btn btn-eco-ghost btn-eco-sm"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+    </div>
+    <div class="eco-card-body">
+        <div class="alert alert-info mb-4">
+            <strong>Pickup location</strong> — students see this when reserving your boxes.
+        </div>
+        <form method="POST" class="row g-2 align-items-end mb-4">
+            <input type="hidden" name="update_location" value="1">
+            <div class="col-md-8">
+                <label class="form-label small">Campus pickup location</label>
+                <input type="text" name="location" class="form-control" required
+                       placeholder="e.g. Main cafeteria, counter 2"
+                       value="{{ pickup_location }}">
             </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <strong>📦 Manage Your Surprise Boxes</strong><br>
-                    Add new boxes, edit existing ones, or remove items that are no longer available.
-                </div>
-                
-                <!-- ADD THIS NEW BUTTON -->
-                <div class="mb-3">
-                    <a href="/vendor/reservations" class="btn btn-primary me-2">
-                        📋 View Customer Reservations
-                    </a>
-                    <a href="/vendor/add_box" class="btn btn-success">
-                        + Add New Surprise Box
-                    </a>
-                </div>
-                <!-- END OF ADDED CODE -->
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-eco btn-eco-sm w-100">Save location</button>
             </div>
+        </form>
+        <div>
+            <a href="/vendor/reservations" class="btn btn-eco-outline btn-eco-sm me-2">
+                <i class="bi bi-clipboard-check me-1"></i>Reservations
+            </a>
+            <a href="/vendor/add_box" class="btn btn-eco btn-eco-sm">
+                <i class="bi bi-plus-lg me-1"></i>Add surprise box
+            </a>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0">Your Surprise Boxes</h5>
+<div class="eco-card">
+    <div class="eco-card-header">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>Your surprise boxes</h5>
+    </div>
+    <div class="eco-card-body">
+        {% if boxes %}
+            <div class="table-responsive">
+                <table class="table eco-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Original Price</th>
+                            <th>Discounted Price</th>
+                            <th>Available</th>
+                            <th>Eco Points</th>
+                            <th>Pickup Window</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for box in boxes %}
+                        <tr>
+                            <td>{{ box[0] }}</td>
+                            <td><strong>{{ box[2] }}</strong></td>
+                            <td>{{ box[3][:50] }}{% if box[3]|length > 50 %}...{% endif %}</td>
+                            <td>${{ "%.2f"|format(box[4]) }}</td>
+                            <td class="text-success fw-bold">${{ "%.2f"|format(box[5]) }}</td>
+                            <td>
+                                {% if box[6] > 0 %}
+                                    <span class="badge badge-completed">{{ box[6] }} in stock</span>
+                                {% else %}
+                                    <span class="badge badge-cancelled">Out of stock</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ box[9] }} pts</td>
+                            <td>
+                                <small>
+                                    {{ box[7].strftime('%m/%d %H:%M') if box[7] else 'N/A' }} -
+                                    {{ box[8].strftime('%m/%d %H:%M') if box[8] else 'N/A' }}
+                                </small>
+                            </td>
+                            <td>
+                                <a href="/vendor/edit_box/{{ box[0] }}" class="btn btn-eco-outline btn-eco-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+                                <a href="/vendor/delete_box/{{ box[0] }}" class="btn btn-eco-danger btn-eco-sm" onclick="return confirm('Deactivate this box? It will no longer appear for students, but past orders stay in history.')"><i class="bi bi-trash me-1"></i>Deactivate</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            <div class="card-body">
-                {% if boxes %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-success">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Title</th>
-                                    <th>Description</th>
-                                    <th>Original Price</th>
-                                    <th>Discounted Price</th>
-                                    <th>Available</th>
-                                    <th>Eco Points</th>
-                                    <th>Pickup Window</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for box in boxes %}
-                                <tr>
-                                    <td>{{ box[0] }}</td>
-                                    <td><strong>{{ box[2] }}</strong></td>
-                                    <td>{{ box[3][:50] }}{% if box[3]|length > 50 %}...{% endif %}</td>
-                                    <td>${{ "%.2f"|format(box[4]) }}</td>
-                                    <td class="text-success fw-bold">${{ "%.2f"|format(box[5]) }}</td>
-                                    <td>
-                                        {% if box[6] > 0 %}
-                                            <span class="badge bg-success">{{ box[6] }} in stock</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Out of stock</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ box[9] }} pts</td>
-                                    <td>
-                                        <small>
-                                            {{ box[7].strftime('%m/%d %H:%M') if box[7] else 'N/A' }} - 
-                                            {{ box[8].strftime('%m/%d %H:%M') if box[8] else 'N/A' }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <a href="/vendor/edit_box/{{ box[0] }}" class="btn btn-sm btn-warning">✏️ Edit</a>
-                                        <a href="/vendor/delete_box/{{ box[0] }}" class="btn btn-sm btn-danger" onclick="return confirm('Deactivate this box? It will no longer appear for students, but past orders stay in history.')">🗑️ Deactivate</a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning text-center">
-                        <strong>No surprise boxes yet!</strong><br>
-                        Click the "Add New Surprise Box" button above to create your first box.
-                    </div>
-                {% endif %}
+        {% else %}
+            <div class="alert alert-warning text-center mb-0">
+                <strong>No surprise boxes yet!</strong><br>
+                Use <strong>Add surprise box</strong> above to create your first listing.
             </div>
-        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

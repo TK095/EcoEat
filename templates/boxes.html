@@ -6,22 +6,43 @@
 
 {% block content %}
 <h1 class="page-heading"><i class="bi bi-box-seam me-2"></i>Available surprise boxes</h1>
+<p class="text-muted mb-4">Reserve before stock runs out. Pick up at the vendor location during the pickup window.</p>
 <div class="row">
     {% for box in boxes %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="box-card">
+            <div class="box-card-img" aria-hidden="true">
+                <i class="bi bi-basket2"></i>
+            </div>
             <div class="card-body d-flex flex-column">
-                <h5 class="card-title mb-2">{{ box[2] }}</h5>
-                <p class="text-muted small flex-grow-1">{{ box[3][:100] }}{% if box[3]|length > 100 %}…{% endif %}</p>
+                <p class="small text-muted mb-1">{{ box[9] }}</p>
+                <h5 class="card-title mb-2">{{ box[1] }}</h5>
+                <p class="text-muted small flex-grow-1">{{ box[2][:100] }}{% if box[2]|length > 100 %}…{% endif %}</p>
                 <p class="mb-2 small">
-                    <span class="text-muted"><s>${{ "%.2f"|format(box[4]) }}</s></span>
-                    <span class="price-new ms-1">${{ "%.2f"|format(box[5]) }}</span>
+                    <span class="text-muted"><s>${{ "%.2f"|format(box[3]) }}</s></span>
+                    <span class="price-new ms-1">${{ "%.2f"|format(box[4]) }}</span>
+                    <span class="text-muted"> each</span>
                 </p>
-                <p class="mb-3 small text-muted">
-                    <i class="bi bi-box me-1"></i>{{ box[6] }} available
-                    {% if box[9] %}<span class="ms-2"><i class="bi bi-star me-1"></i>+{{ box[9] }} pts</span>{% endif %}
-                </p>
-                <a href="/reserve/{{ box[0] }}" class="btn btn-eco w-100 mt-auto">Reserve</a>
+                <ul class="list-unstyled small text-muted mb-3 pickup-meta">
+                    <li><i class="bi bi-geo-alt me-1"></i>{{ box[10] or 'Location not set' }}</li>
+                    <li><i class="bi bi-clock me-1"></i>{{ box[6] }} – {{ box[7] }}</li>
+                    <li><i class="bi bi-box me-1"></i>{{ box[5] }} available
+                        {% if box[8] %}<span class="ms-1"><i class="bi bi-star me-1"></i>+{{ box[8] }} pts each</span>{% endif %}
+                    </li>
+                </ul>
+                <button type="button"
+                        class="btn btn-eco w-100 mt-auto"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reserveModal"
+                        data-box-id="{{ box[0] }}"
+                        data-box-title="{{ box[1] }}"
+                        data-box-price="{{ box[4] }}"
+                        data-box-stock="{{ box[5] }}"
+                        data-box-vendor="{{ box[9] }}"
+                        data-box-location="{{ box[10] or 'Ask vendor' }}"
+                        data-box-pickup="{{ box[6] }} – {{ box[7] }}">
+                    Reserve
+                </button>
             </div>
         </div>
     </div>
@@ -37,4 +58,75 @@
     </div>
     {% endfor %}
 </div>
+
+<div class="modal fade" id="reserveModal" tabindex="-1" aria-labelledby="reserveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content eco-modal">
+            <form method="POST" id="reserveForm" action="">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="reserveModalLabel">Confirm reservation</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2"><strong id="modalBoxTitle"></strong></p>
+                    <p class="small text-muted mb-3" id="modalBoxVendor"></p>
+                    <dl class="row small mb-3 pickup-summary">
+                        <dt class="col-4 text-muted">Pickup</dt>
+                        <dd class="col-8" id="modalPickup"></dd>
+                        <dt class="col-4 text-muted">Where</dt>
+                        <dd class="col-8" id="modalLocation"></dd>
+                        <dt class="col-4 text-muted">Price</dt>
+                        <dd class="col-8">$<span id="modalUnitPrice"></span> each</dd>
+                    </dl>
+                    <div class="mb-3">
+                        <label for="reserveQty" class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="reserveQty" name="quantity" value="1" min="1" max="1" required>
+                        <div class="form-text">Total: $<span id="modalTotalPrice">0.00</span></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-eco-ghost" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-eco">Confirm reserve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var modal = document.getElementById('reserveModal');
+    if (!modal) return;
+    var form = document.getElementById('reserveForm');
+    var qtyInput = document.getElementById('reserveQty');
+    var unitPrice = 0;
+
+    function updateTotal() {
+        var q = parseInt(qtyInput.value, 10) || 1;
+        document.getElementById('modalTotalPrice').textContent = (unitPrice * q).toFixed(2);
+    }
+
+    modal.addEventListener('show.bs.modal', function (e) {
+        var btn = e.relatedTarget;
+        var boxId = btn.getAttribute('data-box-id');
+        unitPrice = parseFloat(btn.getAttribute('data-box-price')) || 0;
+        var stock = parseInt(btn.getAttribute('data-box-stock'), 10) || 1;
+
+        form.action = '/reserve/' + boxId;
+        document.getElementById('modalBoxTitle').textContent = btn.getAttribute('data-box-title');
+        document.getElementById('modalBoxVendor').textContent = btn.getAttribute('data-box-vendor');
+        document.getElementById('modalPickup').textContent = btn.getAttribute('data-box-pickup');
+        document.getElementById('modalLocation').textContent = btn.getAttribute('data-box-location');
+        document.getElementById('modalUnitPrice').textContent = unitPrice.toFixed(2);
+
+        qtyInput.max = stock;
+        qtyInput.value = 1;
+        updateTotal();
+    });
+
+    qtyInput.addEventListener('input', updateTotal);
+})();
+</script>
 {% endblock %}

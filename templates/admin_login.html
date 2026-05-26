@@ -1,34 +1,33 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
 {% block title %}Admin Login{% endblock %}
 
-{% block body_class %}role-admin{% endblock %}
+{% block auth_body_class %}role-admin{% endblock %}
+{% set auth_role = 'admin' %}
+{% set auth_icon = 'bi-shield-lock' %}
+{% set auth_title = 'Admin sign in' %}
+{% set auth_subtitle = 'View analytics and manage students and vendors.' %}
 
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white">
-                <h4 class="mb-0">Admin Login</h4>
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Username</label>
-                        <input type="text" name="username" class="form-control" required autocomplete="username">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-dark w-100">Login</button>
-                </form>
-                <hr>
-                <div class="text-center">
-                    <a href="/" class="text-decoration-none">Back to Home</a>
-                </div>
-            </div>
+{% block auth_form %}
+<form method="POST">
+    <div class="mb-3">
+        <label class="form-label" for="username">Username</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+            <input type="text" name="username" id="username" class="form-control" required autocomplete="username" placeholder="Admin username">
         </div>
     </div>
-</div>
+    <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" name="password" id="password" class="form-control" required placeholder="Your password">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-eco btn-eco-primary w-100">Sign in</button>
+</form>
+{% endblock %}
+
+{% block auth_footer_content %}
+<p class="mt-2"><a href="/" class="auth-back-link text-decoration-none">← Back to home</a></p>
 {% endblock %}

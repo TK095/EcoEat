@@ -5,94 +5,102 @@
 {% block body_class %}role-vendor{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">📋 Manage Customer Reservations</h4>
-                <a href="/vendor/dashboard" class="btn btn-sm btn-light">← Back to Dashboard</a>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <strong>📌 How it works:</strong> When a student picks up their surprise box, mark the reservation as "Completed" to award them eco points.
-                </div>
-                
-                {% if reservations %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-success">
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Student Name</th>
-                                    <th>Box Title</th>
-                                    <th>Order Date</th>
-                                    <th>Status</th>
-                                    <th>Eco Points</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for reservation in reservations %}
-                                <tr>
-                                    <td>#{{ reservation[0] }}</td>
-                                    <td>
-                                        <strong>{{ reservation[3] }}</strong><br>
-                                        <small class="text-muted">ID: {{ reservation[4] }}</small>
-                                    </td>
-                                    <td>{{ reservation[5] }}</td>
-                                    <td>{{ reservation[1] }}</td>
-                                    <td>
-                                        {% if reservation[2] == 'Reserved' %}
-                                            <span class="badge bg-warning text-dark">🟡 Reserved (Pending Pickup)</span>
-                                        {% elif reservation[2] == 'Completed' %}
-                                            <span class="badge bg-success">✅ Completed</span>
-                                        {% elif reservation[2] == 'Cancelled' %}
-                                            <span class="badge bg-secondary">Cancelled</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ reservation[2] }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if reservation[2] == 'Reserved' %}
-                                            <span class="badge bg-info">{{ reservation[6] }} pts pending</span>
-                                        {% elif reservation[2] == 'Completed' %}
-                                            <span class="badge bg-success">{{ reservation[6] }} pts awarded</span>
-                                        {% elif reservation[2] == 'Cancelled' %}
-                                            <span class="badge bg-secondary">—</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if reservation[2] == 'Reserved' %}
-                                            <a href="/vendor/complete_reservation/{{ reservation[0] }}" 
-                                               class="btn btn-sm btn-success"
-                                               onclick="return confirm('Mark this reservation as completed? This will award {{ reservation[6] }} eco points to {{ reservation[3] }}.')">
-                                                ✅ Mark Completed
-                                            </a>
-                                        {% elif reservation[2] == 'Completed' %}
-                                            <button class="btn btn-sm btn-secondary" disabled>✓ Completed</button>
-                                        {% elif reservation[2] == 'Cancelled' %}
-                                            <button class="btn btn-sm btn-secondary" disabled>Cancelled</button>
-                                        {% else %}
-                                            <button class="btn btn-sm btn-secondary" disabled>—</button>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning text-center">
-                        <strong>No reservations yet!</strong><br>
-                        Students haven't reserved any of your surprise boxes yet.
-                        <hr>
-                        <a href="/vendor/add_box" class="btn btn-success">Add More Boxes</a>
-                    </div>
-                {% endif %}
-            </div>
+<div class="eco-card">
+    <div class="eco-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h4 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Manage reservations</h4>
+        <a href="/vendor/dashboard" class="btn btn-eco-ghost btn-eco-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    </div>
+    <div class="eco-card-body">
+        <div class="alert alert-info">
+            <strong>How it works:</strong> When a student arrives, enter their 6-digit pickup code below to confirm the pickup and award eco points.
         </div>
+
+        <form method="POST" action="/vendor/complete_by_code" class="row g-2 align-items-end mb-4">
+            <div class="col-md-9">
+                <label class="form-label small">Pickup code (shown to the student)</label>
+                <input
+                    type="text"
+                    name="pickup_code"
+                    class="form-control"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    inputmode="numeric"
+                    placeholder="e.g. 123456"
+                    required
+                >
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-eco btn-eco-sm w-100"><i class="bi bi-check2-circle me-1"></i>Confirm pickup</button>
+            </div>
+        </form>
+
+        {% if reservations %}
+            <div class="table-responsive">
+                <table class="table eco-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Student Name</th>
+                            <th>Box Title</th>
+                            <th>Order Date</th>
+                            <th>Status</th>
+                            <th>Eco Points</th>
+                            <th>Pickup Code</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reservation in reservations %}
+                        <tr>
+                            <td>#{{ reservation[0] }}</td>
+                            <td>
+                                <strong>{{ reservation[3] }}</strong><br>
+                                <small class="text-muted">ID: {{ reservation[4] }}</small>
+                            </td>
+                            <td>{{ reservation[5] }}{% if reservation[7] and reservation[7] > 1 %} <span class="badge badge-cancelled">×{{ reservation[7] }}</span>{% endif %}</td>
+                            <td>{{ reservation[1] }}</td>
+                            <td>
+                                {% if reservation[2] == 'Reserved' %}
+                                    <span class="badge badge-reserved">Reserved</span>
+                                {% elif reservation[2] == 'Completed' %}
+                                    <span class="badge badge-completed">Completed</span>
+                                {% elif reservation[2] == 'Cancelled' %}
+                                    <span class="badge badge-cancelled">Cancelled</span>
+                                {% else %}
+                                    <span class="badge badge-cancelled">{{ reservation[2] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set pts = reservation[6] * (reservation[7] or 1) %}
+                                {% if reservation[2] == 'Reserved' %}
+                                    <span class="badge badge-reserved">{{ pts }} pts pending</span>
+                                {% elif reservation[2] == 'Completed' %}
+                                    <span class="badge badge-completed">{{ pts }} pts awarded</span>
+                                {% elif reservation[2] == 'Cancelled' %}
+                                    <span class="badge badge-cancelled">—</span>
+                                {% else %}
+                                    <span class="badge badge-cancelled">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reservation[8] %}
+                                    <span class="badge badge-cancelled fw-semibold">{{ reservation[8] }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-warning text-center mb-0">
+                <strong>No reservations yet!</strong><br>
+                Students haven't reserved any of your surprise boxes yet.
+                <hr>
+                <a href="/vendor/add_box" class="btn btn-eco">Add more boxes</a>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, flash
-from MySQLdb import IntegrityError
+import secrets
 from db_config import mysql
 
 app = Flask(__name__)
@@ -39,18 +39,12 @@ def register():
             flash('Email already registered. Please login or use a different email.', 'danger')
             return redirect('/register')
 
-        try:
-            cur.execute("""
-                INSERT INTO Students (full_name, email, password)
-                VALUES (%s, %s, %s)
-            """, (full_name, email, password))
-            mysql.connection.commit()
-        except IntegrityError:
-            mysql.connection.rollback()
-            flash('Email already registered. Please login or use a different email.', 'danger')
-            return redirect('/register')
-        finally:
-            cur.close()
+        cur.execute("""
+            INSERT INTO Students (full_name, email, password)
+            VALUES (%s, %s, %s)
+        """, (full_name, email, password))
+        mysql.connection.commit()
+        cur.close()
 
         flash('Registration successful! Please log in.', 'success')
         return redirect('/login')
@@ -106,8 +100,16 @@ def dashboard():
     cur = mysql.connection.cursor()
     cur.execute("SELECT eco_points FROM Students WHERE student_id = %s", (session['student_id'],))
     row = cur.fetchone()
-    cur.close()
     eco_points = row[0] if row else 0
+
+    cur.execute("""
+        SELECT full_name, eco_points
+        FROM Students
+        ORDER BY eco_points DESC
+        LIMIT 5
+    """)
+    leaderboard = cur.fetchall()
+    cur.close()
 
     level = (eco_points // 50) + 1
     points_into_level = eco_points % 50
@@ -120,7 +122,8 @@ def dashboard():
         eco_points=eco_points,
         level=level,
         progress_pct=progress_pct,
-        points_to_next=points_to_next
+        points_to_next=points_to_next,
+        leaderboard=leaderboard
     )
 
 # =========================
@@ -145,9 +148,14 @@ def boxes():
     cur = mysql.connection.cursor()
 
     query = """
-    SELECT * FROM Surprise_Boxes
-    WHERE quantity_available > 0
-    AND status = 'Available'
+    SELECT b.box_id, b.title, b.description, b.original_price, b.discounted_price,
+           b.quantity_available, b.pickup_start, b.pickup_end, b.eco_points_reward,
+           v.vendor_name, v.location
+    FROM Surprise_Boxes b
+    JOIN Vendors v ON b.vendor_id = v.vendor_id
+    WHERE b.quantity_available > 0
+    AND b.status = 'Available'
+    ORDER BY b.pickup_start ASC
     """
 
     cur.execute(query)
@@ -164,25 +172,29 @@ def boxes():
 # =========================
 # RESERVE SURPRISE BOX
 # =========================
-@app.route('/reserve/<int:box_id>')
+@app.route('/reserve/<int:box_id>', methods=['GET', 'POST'])
 def reserve_box(box_id):
 
     if 'student_id' not in session:
         return redirect('/login')
 
+    if request.method == 'GET':
+        return redirect('/boxes')
+
     student_id = session['student_id']
+    qty = int(request.form.get('quantity', 1))
+
+    if qty < 1:
+        flash('Quantity must be at least 1.', 'warning')
+        return redirect('/boxes')
 
     cur = mysql.connection.cursor()
 
-    # Get box information (must be available and in stock)
-    query = """
-    SELECT discounted_price, quantity_available
-    FROM Surprise_Boxes
-    WHERE box_id = %s AND status = 'Available'
-    """
-
-    cur.execute(query, (box_id,))
-
+    cur.execute("""
+        SELECT b.discounted_price, b.quantity_available, b.title
+        FROM Surprise_Boxes b
+        WHERE b.box_id = %s AND b.status = 'Available'
+    """, (box_id,))
     box = cur.fetchone()
 
     if box is None:
@@ -190,26 +202,33 @@ def reserve_box(box_id):
         flash('Box not found or not available.', 'danger')
         return redirect('/boxes')
 
-    discounted_price = box[0]
+    discounted_price = float(box[0])
     quantity_available = box[1]
+    box_title = box[2]
 
-    if quantity_available <= 0:
+    if quantity_available < qty:
         cur.close()
-        flash('Box is out of stock.', 'warning')
+        flash(f'Only {quantity_available} available for "{box_title}".', 'warning')
         return redirect('/boxes')
 
+    total_price = round(discounted_price * qty, 2)
+
     try:
+        # Simple, human-friendly pickup code (digits only) for counter verification.
+        # Stored per Order so the vendor can complete the correct reservation.
+        pickup_code = ''.join(secrets.choice('0123456789') for _ in range(6))
+
         cur.execute("""
             INSERT INTO Orders
-            (student_id, box_id, total_price, order_status)
-            VALUES (%s, %s, %s, 'Reserved')
-        """, (student_id, box_id, discounted_price))
+            (student_id, box_id, quantity, total_price, order_status, pickup_code)
+            VALUES (%s, %s, %s, %s, 'Reserved', %s)
+        """, (student_id, box_id, qty, total_price, pickup_code))
 
         cur.execute("""
             UPDATE Surprise_Boxes
-            SET quantity_available = quantity_available - 1
-            WHERE box_id = %s AND quantity_available > 0 AND status = 'Available'
-        """, (box_id,))
+            SET quantity_available = quantity_available - %s
+            WHERE box_id = %s AND quantity_available >= %s AND status = 'Available'
+        """, (qty, box_id, qty))
 
         if cur.rowcount == 0:
             mysql.connection.rollback()
@@ -217,7 +236,7 @@ def reserve_box(box_id):
             return redirect('/boxes')
 
         mysql.connection.commit()
-        flash('Reservation successful! View it in My Orders.', 'success')
+        flash(f'Reserved {qty} box(es). Pick up during the window shown in My Orders.', 'success')
     except Exception:
         mysql.connection.rollback()
         flash('Reservation failed. Please try again.', 'danger')
@@ -237,11 +256,14 @@ def orders():
 
     cur = mysql.connection.cursor()
     cur.execute("""
-        SELECT Orders.order_id, Surprise_Boxes.title, Orders.total_price, Orders.order_date, Orders.order_status
-        FROM Orders
-        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
-        WHERE Orders.student_id = %s
-        ORDER BY Orders.order_date DESC
+        SELECT o.order_id, b.title, o.total_price, o.order_date, o.order_status,
+               o.quantity, v.vendor_name, v.location, b.pickup_start, b.pickup_end
+               , o.pickup_code
+        FROM Orders o
+        JOIN Surprise_Boxes b ON o.box_id = b.box_id
+        JOIN Vendors v ON b.vendor_id = v.vendor_id
+        WHERE o.student_id = %s
+        ORDER BY o.order_date DESC
     """, (session['student_id'],))
     orders = cur.fetchall()
     cur.close()
@@ -259,7 +281,7 @@ def cancel_order(order_id):
     cur = mysql.connection.cursor()
 
     cur.execute("""
-        SELECT Orders.order_status, Orders.box_id
+        SELECT Orders.order_status, Orders.box_id, Orders.quantity
         FROM Orders
         JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
         WHERE Orders.order_id = %s AND Orders.student_id = %s
@@ -277,13 +299,14 @@ def cancel_order(order_id):
         return redirect('/orders')
 
     box_id = order[1]
+    qty = order[2] if order[2] else 1
 
     cur.execute("UPDATE Orders SET order_status = 'Cancelled' WHERE order_id = %s", (order_id,))
     cur.execute("""
         UPDATE Surprise_Boxes
-        SET quantity_available = quantity_available + 1
+        SET quantity_available = quantity_available + %s
         WHERE box_id = %s
-    """, (box_id,))
+    """, (qty, box_id))
 
     mysql.connection.commit()
     cur.close()
@@ -317,13 +340,24 @@ def vendor_login():
 # =========================
 # VENDOR DASHBOARD
 # =========================
-@app.route('/vendor/dashboard')
+@app.route('/vendor/dashboard', methods=['GET', 'POST'])
 def vendor_dashboard():
     if 'vendor_id' not in session:
         return redirect('/vendor/login')
 
-    # Fetch this vendor's surprise boxes
     cur = mysql.connection.cursor()
+
+    if request.method == 'POST' and request.form.get('update_location'):
+        location = request.form.get('location', '').strip()
+        cur.execute("UPDATE Vendors SET location = %s WHERE vendor_id = %s",
+                    (location, session['vendor_id']))
+        mysql.connection.commit()
+        flash('Pickup location updated.', 'success')
+
+    cur.execute("SELECT location FROM Vendors WHERE vendor_id = %s", (session['vendor_id'],))
+    loc_row = cur.fetchone()
+    pickup_location = loc_row[0] if loc_row and loc_row[0] else ''
+
     cur.execute("""
         SELECT * FROM Surprise_Boxes
         WHERE vendor_id = %s AND status != 'Deleted'
@@ -331,7 +365,12 @@ def vendor_dashboard():
     boxes = cur.fetchall()
     cur.close()
 
-    return render_template('vendor_dashboard.html', boxes=boxes, name=session['vendor_name'])
+    return render_template(
+        'vendor_dashboard.html',
+        boxes=boxes,
+        name=session['vendor_name'],
+        pickup_location=pickup_location
+    )
 
 # =========================
 # VENDOR LOGOUT
@@ -468,13 +507,15 @@ def vendor_reservations():
     
     # Get all orders for this vendor's boxes, with student info
     query = """
-        SELECT Orders.order_id, 
-               Orders.order_date, 
+        SELECT Orders.order_id,
+               Orders.order_date,
                Orders.order_status,
                Students.full_name,
                Students.student_id,
                Surprise_Boxes.title,
-               Surprise_Boxes.eco_points_reward
+               Surprise_Boxes.eco_points_reward,
+               COALESCE(Orders.quantity, 1),
+               Orders.pickup_code
         FROM Orders
         JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
         JOIN Students ON Orders.student_id = Students.student_id
@@ -491,61 +532,58 @@ def vendor_reservations():
                          name=session['vendor_name'])
 
 # =========================
-# VENDOR: MARK RESERVATION AS COMPLETED
+# VENDOR: MARK RESERVATION COMPLETED BY PICKUP CODE
 # =========================
-@app.route('/vendor/complete_reservation/<int:order_id>')
-def complete_reservation(order_id):
-    # Check if vendor is logged in
+@app.route('/vendor/complete_by_code', methods=['POST'])
+def complete_by_code():
     if 'vendor_id' not in session:
         return redirect('/vendor/login')
-    
+
+    pickup_code = (request.form.get('pickup_code') or '').strip().upper()
+    if not pickup_code:
+        flash('Please enter a pickup code.', 'warning')
+        return redirect('/vendor/reservations')
+
     cur = mysql.connection.cursor()
-    
-    # First, verify this order belongs to this vendor's box
-    # (Security check - prevent vendors from completing orders for other vendors)
-    verify_query = """
-        SELECT Orders.order_id, Orders.order_status,
-               Surprise_Boxes.eco_points_reward, 
-               Orders.student_id
-        FROM Orders
-        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
-        WHERE Orders.order_id = %s AND Surprise_Boxes.vendor_id = %s
+
+    # Look up a reserved order by code, but only within this vendor's boxes.
+    lookup_query = """
+        SELECT o.order_id,
+               b.eco_points_reward,
+               o.student_id,
+               COALESCE(o.quantity, 1)
+        FROM Orders o
+        JOIN Surprise_Boxes b ON o.box_id = b.box_id
+        WHERE o.pickup_code = %s
+          AND b.vendor_id = %s
+          AND o.order_status = 'Reserved'
     """
-    
-    cur.execute(verify_query, (order_id, session['vendor_id']))
-    order = cur.fetchone()
-    
-    if not order:
+    cur.execute(lookup_query, (pickup_code, session['vendor_id']))
+    order_row = cur.fetchone()
+
+    if not order_row:
         cur.close()
-        flash('Order not found or you do not have permission to modify it.', 'danger')
+        flash('Invalid pickup code (or order is not reserved).', 'danger')
         return redirect('/vendor/reservations')
 
-    if order[1] == 'Completed':
-        cur.close()
-        flash('This reservation has already been completed.', 'info')
-        return redirect('/vendor/reservations')
-
-    if order[1] != 'Reserved':
-        cur.close()
-        flash('Only reserved orders can be marked as completed.', 'warning')
-        return redirect('/vendor/reservations')
+    order_id, eco_points_reward, student_id, qty = order_row
 
     cur.execute("""
-        UPDATE Orders SET order_status = 'Completed'
+        UPDATE Orders
+        SET order_status = 'Completed'
         WHERE order_id = %s AND order_status = 'Reserved'
     """, (order_id,))
 
     if cur.rowcount == 0:
         cur.close()
-        flash('Order was already completed or cancelled.', 'warning')
+        flash('That reservation was already completed or cancelled.', 'warning')
         return redirect('/vendor/reservations')
 
-    eco_points = order[2]
-    student_id = order[3]
+    eco_points = eco_points_reward * qty
 
     cur.execute("UPDATE Students SET eco_points = eco_points + %s WHERE student_id = %s",
                 (eco_points, student_id))
-    reason = f"Completed reservation #{order_id} - Surprise Box pickup confirmed"
+    reason = f"Completed reservation #{order_id} - Surprise Box pickup confirmed (code)"
     cur.execute("""
         INSERT INTO Eco_Point_Log (student_id, points_earned, reason)
         VALUES (%s, %s, %s)
@@ -554,7 +592,7 @@ def complete_reservation(order_id):
     mysql.connection.commit()
     cur.close()
 
-    flash(f'Pickup confirmed. {eco_points} eco points awarded to the student.', 'success')
+    flash(f'Pickup confirmed for order #{order_id}. {eco_points} eco points awarded.', 'success')
     return redirect('/vendor/reservations')
 
 # =========================
@@ -575,78 +613,11 @@ def admin_login():
             session.clear()
             session['admin_id'] = admin[0]
             session['admin_name'] = admin[1]  # username
-            return redirect('/admin/dashboard')
+            return redirect('/admin/vendors')
         flash('Invalid admin credentials.', 'danger')
         return redirect('/admin/login')
 
     return render_template('admin_login.html')
-
-# =========================
-# ADMIN DASHBOARD
-# =========================
-@app.route('/admin/dashboard')
-def admin_dashboard():
-    if 'admin_id' not in session:
-        return redirect('/admin/login')
-
-    cur = mysql.connection.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM Orders WHERE order_status = 'Completed'")
-    meals_rescued = cur.fetchone()[0]
-
-    cur.execute("SELECT COALESCE(SUM(points_earned), 0) FROM Eco_Point_Log")
-    eco_points_distributed = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM Students")
-    total_students = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM Vendors")
-    total_vendors = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM Surprise_Boxes WHERE status != 'Deleted'")
-    active_boxes = cur.fetchone()[0]
-
-    cur.execute("""
-        SELECT order_status, COUNT(*) AS cnt
-        FROM Orders
-        GROUP BY order_status
-    """)
-    order_stats = cur.fetchall()
-
-    cur.execute("""
-        SELECT full_name, eco_points
-        FROM Students
-        ORDER BY eco_points DESC
-        LIMIT 5
-    """)
-    top_students = cur.fetchall()
-
-    cur.execute("""
-        SELECT Vendors.vendor_name, COUNT(*) AS completed_orders
-        FROM Orders
-        JOIN Surprise_Boxes ON Orders.box_id = Surprise_Boxes.box_id
-        JOIN Vendors ON Surprise_Boxes.vendor_id = Vendors.vendor_id
-        WHERE Orders.order_status = 'Completed'
-        GROUP BY Vendors.vendor_id, Vendors.vendor_name
-        ORDER BY completed_orders DESC
-        LIMIT 5
-    """)
-    top_vendors = cur.fetchall()
-
-    cur.close()
-
-    return render_template(
-        'admin_dashboard.html',
-        name=session['admin_name'],
-        meals_rescued=meals_rescued,
-        eco_points_distributed=eco_points_distributed,
-        total_students=total_students,
-        total_vendors=total_vendors,
-        active_boxes=active_boxes,
-        order_stats=order_stats,
-        top_students=top_students,
-        top_vendors=top_vendors
-    )
 
 # =========================
 # ADMIN HELPERS
@@ -655,146 +626,6 @@ def require_admin():
     if 'admin_id' not in session:
         return redirect('/admin/login')
     return None
-
-# =========================
-# ADMIN: MANAGE STUDENTS
-# =========================
-@app.route('/admin/students')
-def admin_students():
-    guard = require_admin()
-    if guard:
-        return guard
-
-    cur = mysql.connection.cursor()
-    cur.execute("""
-        SELECT s.student_id, s.full_name, s.email, s.eco_points,
-               (SELECT COUNT(*) FROM Orders o
-                WHERE o.student_id = s.student_id AND o.order_status = 'Completed') AS completed_orders
-        FROM Students s
-        ORDER BY s.student_id
-    """)
-    students = cur.fetchall()
-    cur.close()
-
-    return render_template('admin_students.html', students=students, name=session['admin_name'])
-
-@app.route('/admin/students/add', methods=['GET', 'POST'])
-def admin_student_add():
-    guard = require_admin()
-    if guard:
-        return guard
-
-    if request.method == 'POST':
-        full_name = request.form['full_name']
-        email = request.form['email']
-        password = request.form['password']
-        eco_points = int(request.form.get('eco_points') or 0)
-
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT student_id FROM Students WHERE email = %s", (email,))
-        if cur.fetchone():
-            cur.close()
-            flash('Email already in use.', 'danger')
-            return redirect('/admin/students/add')
-
-        try:
-            cur.execute("""
-                INSERT INTO Students (full_name, email, password, eco_points)
-                VALUES (%s, %s, %s, %s)
-            """, (full_name, email, password, eco_points))
-            mysql.connection.commit()
-            flash('Student added successfully.', 'success')
-        except IntegrityError:
-            mysql.connection.rollback()
-            flash('Email already in use.', 'danger')
-            return redirect('/admin/students/add')
-        finally:
-            cur.close()
-
-        return redirect('/admin/students')
-
-    return render_template('admin_student_form.html', is_edit=False, student=None, name=session['admin_name'])
-
-@app.route('/admin/students/edit/<int:student_id>', methods=['GET', 'POST'])
-def admin_student_edit(student_id):
-    guard = require_admin()
-    if guard:
-        return guard
-
-    cur = mysql.connection.cursor()
-
-    if request.method == 'POST':
-        full_name = request.form['full_name']
-        email = request.form['email']
-        eco_points = int(request.form.get('eco_points') or 0)
-        password = request.form.get('password', '').strip()
-
-        cur.execute("SELECT student_id FROM Students WHERE email = %s AND student_id != %s",
-                    (email, student_id))
-        if cur.fetchone():
-            cur.close()
-            flash('Email already in use by another student.', 'danger')
-            return redirect(f'/admin/students/edit/{student_id}')
-
-        if password:
-            cur.execute("""
-                UPDATE Students
-                SET full_name=%s, email=%s, eco_points=%s, password=%s
-                WHERE student_id=%s
-            """, (full_name, email, eco_points, password, student_id))
-        else:
-            cur.execute("""
-                UPDATE Students
-                SET full_name=%s, email=%s, eco_points=%s
-                WHERE student_id=%s
-            """, (full_name, email, eco_points, student_id))
-
-        mysql.connection.commit()
-        cur.close()
-        flash('Student updated successfully.', 'success')
-        return redirect('/admin/students')
-
-    cur.execute("SELECT student_id, full_name, email, eco_points FROM Students WHERE student_id = %s",
-                (student_id,))
-    student = cur.fetchone()
-    cur.close()
-
-    if not student:
-        flash('Student not found.', 'danger')
-        return redirect('/admin/students')
-
-    return render_template('admin_student_form.html', is_edit=True, student=student, name=session['admin_name'])
-
-@app.route('/admin/students/delete/<int:student_id>')
-def admin_student_delete(student_id):
-    guard = require_admin()
-    if guard:
-        return guard
-
-    cur = mysql.connection.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM Orders WHERE student_id = %s", (student_id,))
-    if cur.fetchone()[0] > 0:
-        cur.close()
-        flash('Cannot delete: student has order history.', 'warning')
-        return redirect('/admin/students')
-
-    cur.execute("SELECT COUNT(*) FROM Eco_Point_Log WHERE student_id = %s", (student_id,))
-    if cur.fetchone()[0] > 0:
-        cur.close()
-        flash('Cannot delete: student has eco point log entries.', 'warning')
-        return redirect('/admin/students')
-
-    cur.execute("DELETE FROM Students WHERE student_id = %s", (student_id,))
-    if cur.rowcount == 0:
-        cur.close()
-        flash('Student not found.', 'danger')
-        return redirect('/admin/students')
-
-    mysql.connection.commit()
-    cur.close()
-    flash('Student deleted.', 'success')
-    return redirect('/admin/students')
 
 # =========================
 # ADMIN: MANAGE VENDORS
@@ -807,7 +638,7 @@ def admin_vendors():
 
     cur = mysql.connection.cursor()
     cur.execute("""
-        SELECT v.vendor_id, v.vendor_name, v.email,
+        SELECT v.vendor_id, v.vendor_name, v.location, v.email,
                (SELECT COUNT(*) FROM Surprise_Boxes b
                 WHERE b.vendor_id = v.vendor_id AND b.status != 'Deleted') AS active_boxes
         FROM Vendors v
@@ -826,6 +657,7 @@ def admin_vendor_add():
 
     if request.method == 'POST':
         vendor_name = request.form['vendor_name']
+        location = request.form.get('location', '').strip()
         email = request.form['email']
         password = request.form['password']
 
@@ -836,20 +668,14 @@ def admin_vendor_add():
             flash('Email already in use.', 'danger')
             return redirect('/admin/vendors/add')
 
-        try:
-            cur.execute("""
-                INSERT INTO Vendors (vendor_name, email, password)
-                VALUES (%s, %s, %s)
-            """, (vendor_name, email, password))
-            mysql.connection.commit()
-            flash('Vendor added successfully.', 'success')
-        except IntegrityError:
-            mysql.connection.rollback()
-            flash('Email already in use.', 'danger')
-            return redirect('/admin/vendors/add')
-        finally:
-            cur.close()
+        cur.execute("""
+            INSERT INTO Vendors (vendor_name, location, email, password)
+            VALUES (%s, %s, %s, %s)
+        """, (vendor_name, location, email, password))
+        mysql.connection.commit()
+        cur.close()
 
+        flash('Vendor added successfully.', 'success')
         return redirect('/admin/vendors')
 
     return render_template('admin_vendor_form.html', is_edit=False, vendor=None, name=session['admin_name'])
@@ -864,6 +690,7 @@ def admin_vendor_edit(vendor_id):
 
     if request.method == 'POST':
         vendor_name = request.form['vendor_name']
+        location = request.form.get('location', '').strip()
         email = request.form['email']
         password = request.form.get('password', '').strip()
 
@@ -877,22 +704,22 @@ def admin_vendor_edit(vendor_id):
         if password:
             cur.execute("""
                 UPDATE Vendors
-                SET vendor_name=%s, email=%s, password=%s
+                SET vendor_name=%s, location=%s, email=%s, password=%s
                 WHERE vendor_id=%s
-            """, (vendor_name, email, password, vendor_id))
+            """, (vendor_name, location, email, password, vendor_id))
         else:
             cur.execute("""
                 UPDATE Vendors
-                SET vendor_name=%s, email=%s
+                SET vendor_name=%s, location=%s, email=%s
                 WHERE vendor_id=%s
-            """, (vendor_name, email, vendor_id))
+            """, (vendor_name, location, email, vendor_id))
 
         mysql.connection.commit()
         cur.close()
         flash('Vendor updated successfully.', 'success')
         return redirect('/admin/vendors')
 
-    cur.execute("SELECT vendor_id, vendor_name, email FROM Vendors WHERE vendor_id = %s", (vendor_id,))
+    cur.execute("SELECT vendor_id, vendor_name, location, email FROM Vendors WHERE vendor_id = %s", (vendor_id,))
     vendor = cur.fetchone()
     cur.close()
 
@@ -944,18 +771,6 @@ def admin_vendor_delete(vendor_id):
 def admin_logout():
     session.clear()
     return redirect('/admin/login')
-
-# =========================
-# TEST DATABASE CONNECTION
-# =========================
-@app.route('/test_db')
-def test_db():
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT DATABASE();")
-    db = cur.fetchone()
-    cur.close()
-
-    return f"Connected to database: {db}"
 
 # =========================
 # RUN APPLICATION

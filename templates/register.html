@@ -1,37 +1,43 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
 {% block title %}Register{% endblock %}
 
-{% block body_class %}role-guest{% endblock %}
+{% block auth_body_class %}role-guest{% endblock %}
+{% set auth_role = 'student' %}
+{% set auth_icon = 'bi-person-plus' %}
+{% set auth_title = 'Create account' %}
+{% set auth_subtitle = 'Join EcoEat and start rescuing campus meals today.' %}
+{% set auth_wide = true %}
 
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5 col-lg-4">
-        <div class="eco-card">
-            <div class="eco-card-header">
-                <h4 class="mb-0">Create account</h4>
-            </div>
-            <div class="eco-card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Full name</label>
-                        <input type="text" name="full_name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-eco w-100">Register</button>
-                </form>
-                <p class="mt-3 mb-0 text-center text-muted small">
-                    Already registered? <a href="/login" style="color: var(--primary);">Sign in</a>
-                </p>
-            </div>
+{% block auth_form %}
+<form method="POST">
+    <div class="mb-3">
+        <label class="form-label" for="full_name">Full name</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input type="text" name="full_name" id="full_name" class="form-control" required placeholder="Your name">
         </div>
     </div>
-</div>
+    <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input type="email" name="email" id="email" class="form-control" required placeholder="you@university.edu">
+        </div>
+    </div>
+    <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" name="password" id="password" class="form-control" required placeholder="Choose a password">
+        </div>
+        <div class="form-text text-muted small mt-1">Use a password you will remember for this demo account.</div>
+    </div>
+    <button type="submit" class="btn btn-eco btn-eco-primary w-100">Create account</button>
+</form>
+{% endblock %}
+
+{% block auth_footer_content %}
+<p>Already registered? <a href="/login" class="link-eco">Sign in</a></p>
+<p class="mt-2"><a href="/" class="auth-back-link text-decoration-none">← Back to home</a></p>
 {% endblock %}

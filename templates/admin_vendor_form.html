@@ -7,11 +7,14 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white">
-                <h4 class="mb-0">{% if is_edit %}Edit Vendor{% else %}Add Vendor{% endif %}</h4>
+        <div class="eco-card">
+            <div class="eco-card-header">
+                <h4 class="mb-0">
+                    <i class="bi {% if is_edit %}bi-pencil-square{% else %}bi-plus-circle{% endif %} me-2"></i>
+                    {% if is_edit %}Edit vendor{% else %}Add vendor{% endif %}
+                </h4>
             </div>
-            <div class="card-body">
+            <div class="eco-card-body">
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label">Vendor Name</label>
@@ -19,16 +22,22 @@
                                value="{{ vendor[1] if vendor else '' }}">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Pickup location</label>
+                        <input type="text" name="location" class="form-control" required
+                               placeholder="e.g. Student Union, counter 3"
+                               value="{{ vendor[2] if vendor else '' }}">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" name="email" class="form-control" required
-                               value="{{ vendor[2] if vendor else '' }}">
+                               value="{{ vendor[3] if vendor else '' }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Password{% if is_edit %} <small class="text-muted">(leave blank to keep current)</small>{% endif %}</label>
                         <input type="password" name="password" class="form-control" {% if not is_edit %}required{% endif %}>
                     </div>
-                    <button type="submit" class="btn btn-success">{% if is_edit %}Save Changes{% else %}Add Vendor{% endif %}</button>
-                    <a href="/admin/vendors" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-eco">{% if is_edit %}Save changes{% else %}Add vendor{% endif %}</button>
+                    <a href="/admin/vendors" class="btn btn-eco-ghost">Cancel</a>
                 </form>
             </div>
         </div>
