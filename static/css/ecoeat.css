@@ -1,0 +1,470 @@
+/* EcoEat — dark material theme */
+:root {
+    --primary: #29cc6a;
+    --primary-dark: #1f9e52;
+    --primary-light: #6fcf97;
+    --xp-accent: #7dd87a;
+    --bg-main: #121212;
+    --bg-card: #1e1e1e;
+    --bg-elevated: #2d2d2d;
+    --text-primary: #e0e0e0;
+    --text-secondary: #9e9e9e;
+    --border: #333333;
+    --success: #29cc6a;
+    --warning: #ffb74d;
+    --danger: #ef5350;
+    --info: #4fc3f7;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6, .navbar-brand {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+/* Navbar */
+.navbar-ecoeat {
+    background: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}
+
+.navbar-ecoeat .navbar-brand {
+    color: var(--primary) !important;
+    font-weight: 700;
+    font-size: 1.35rem;
+}
+
+.navbar-ecoeat .nav-link {
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+    font-size: 0.95rem;
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.85rem !important;
+    transition: color 0.2s, background 0.2s;
+}
+
+.navbar-ecoeat .nav-link:hover,
+.navbar-ecoeat .nav-link:focus {
+    color: var(--text-primary) !important;
+    background: var(--bg-elevated);
+}
+
+.navbar-ecoeat .navbar-toggler {
+    border-color: var(--border);
+}
+
+.navbar-ecoeat .navbar-toggler-icon {
+    filter: invert(0.85);
+}
+
+/* Cards & surfaces */
+.eco-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+}
+
+.eco-card-header {
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+}
+
+.eco-card-body {
+    padding: 1.25rem;
+}
+
+.eco-hero {
+    background: linear-gradient(145deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 2rem;
+    box-shadow: var(--shadow-2);
+}
+
+.eco-hero h1 {
+    font-size: 2.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.eco-hero .lead {
+    color: var(--text-secondary);
+}
+
+/* Buttons */
+.btn-eco {
+    background: var(--primary);
+    border: none;
+    color: #0d1f14;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 1.25rem;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.btn-eco:hover {
+    background: var(--primary-dark);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(41, 204, 106, 0.35);
+}
+
+.btn-eco-outline {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+}
+
+.btn-eco-outline:hover {
+    background: rgba(41, 204, 106, 0.12);
+    color: var(--primary-light);
+    border-color: var(--primary-light);
+}
+
+.btn-eco-ghost {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+}
+
+.btn-eco-ghost:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.btn-eco-danger {
+    background: var(--danger);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+}
+
+.btn-eco-danger:hover {
+    background: #e53935;
+    color: #fff;
+}
+
+.btn-eco-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Forms */
+.form-control, .form-select {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+}
+
+.form-control:focus, .form-select:focus {
+    background: var(--bg-elevated);
+    border-color: var(--primary);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 3px rgba(41, 204, 106, 0.2);
+}
+
+.form-control::placeholder {
+    color: var(--text-secondary);
+}
+
+.form-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* XP / level (subtle gamification) */
+.xp-panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.xp-stat {
+    font-family: var(--font-ui);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.level-chip {
+    display: inline-block;
+    background: rgba(41, 204, 106, 0.15);
+    color: var(--primary-light);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    border-radius: 2rem;
+    border: 1px solid rgba(41, 204, 106, 0.35);
+}
+
+.xp-track {
+    height: 8px;
+    background: var(--bg-main);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-dark), var(--xp-accent));
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+
+/* Nav list (dashboard links) */
+.eco-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.eco-nav-list li {
+    border-bottom: 1px solid var(--border);
+}
+
+.eco-nav-list li:last-child {
+    border-bottom: none;
+}
+
+.eco-nav-list a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 0.25rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.eco-nav-list a:hover {
+    color: var(--primary);
+}
+
+.eco-nav-list a i {
+    color: var(--primary);
+    font-size: 1.15rem;
+}
+
+.eco-nav-list a.link-danger {
+    color: var(--danger);
+}
+
+.eco-nav-list a.link-danger i {
+    color: var(--danger);
+}
+
+/* Box product cards */
+.box-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    height: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+}
+
+.box-card:hover {
+    border-color: rgba(41, 204, 106, 0.45);
+    box-shadow: var(--shadow-2);
+}
+
+.box-card .card-body {
+    padding: 1.25rem;
+}
+
+.box-card .price-new {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+/* Tables */
+.eco-table {
+    color: var(--text-primary);
+    margin-bottom: 0;
+}
+
+.eco-table thead {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.eco-table thead th {
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+}
+
+.eco-table tbody tr {
+    border-bottom: 1px solid var(--border);
+}
+
+.eco-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Status badges */
+.badge-reserved {
+    background: rgba(255, 183, 77, 0.2);
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.badge-completed {
+    background: rgba(41, 204, 106, 0.2);
+    color: var(--primary-light);
+    font-weight: 600;
+}
+
+.badge-cancelled {
+    background: rgba(158, 158, 158, 0.2);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* Alerts on dark bg */
+.alert {
+    border: none;
+    border-radius: var(--radius-sm);
+}
+
+.alert-success {
+    background: rgba(41, 204, 106, 0.15);
+    color: var(--primary-light);
+}
+
+.alert-danger {
+    background: rgba(239, 83, 80, 0.15);
+    color: #ff8a80;
+}
+
+.alert-warning {
+    background: rgba(255, 183, 77, 0.15);
+    color: var(--warning);
+}
+
+.alert-info {
+    background: rgba(79, 195, 247, 0.15);
+    color: var(--info);
+}
+
+.alert .btn-close {
+    filter: invert(1);
+    opacity: 0.6;
+}
+
+/* Footer */
+.eco-footer {
+    text-align: center;
+    padding: 1.5rem 0 2rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+}
+
+/* Vendor / admin: reuse theme, standard cards */
+body.role-vendor .card,
+body.role-admin .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+body.role-vendor .card-header,
+body.role-admin .card-header {
+    background: var(--bg-elevated) !important;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary) !important;
+}
+
+body.role-vendor .table,
+body.role-admin .table {
+    color: var(--text-primary);
+}
+
+body.role-vendor .table-striped > tbody > tr:nth-of-type(odd),
+body.role-admin .table-striped > tbody > tr:nth-of-type(odd) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.role-vendor .btn-success,
+body.role-admin .btn-success {
+    background: var(--primary);
+    border-color: var(--primary-dark);
+}
+
+body.role-vendor .btn-success:hover,
+body.role-admin .btn-success:hover {
+    background: var(--primary-dark);
+}
+
+body.role-vendor .alert-info,
+body.role-admin .alert-info {
+    background: rgba(79, 195, 247, 0.12);
+    color: var(--info);
+}
+
+body.role-vendor .table-success,
+body.role-admin .table-success,
+body.role-vendor thead.table-success,
+body.role-admin thead.table-success {
+    background: var(--bg-elevated) !important;
+    color: var(--text-secondary) !important;
+}
+
+body.role-vendor .list-group-item,
+body.role-admin .list-group-item {
+    background: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+body.role-vendor .text-danger,
+body.role-admin .text-danger {
+    color: var(--danger) !important;
+}
+
+.page-heading {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+    color: var(--text-primary);
+}
+
+.page-heading i {
+    color: var(--primary);
+}

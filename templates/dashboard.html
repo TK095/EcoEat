@@ -1,24 +1,60 @@
 {% extends "base.html" %}
 
-{% block title %}Student Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %}
+
+{% block body_class %}role-student{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white">
-                <h3>Welcome, {{ name }}!</h3>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-success mb-4">
-                    <h5 class="mb-1">Eco Points: <strong>{{ eco_points }}</strong></h5>
-                    <small class="text-muted">Earn more by completing surprise box pickups.</small>
+<div class="row g-4">
+    <div class="col-lg-8 mx-auto">
+        <div class="eco-card mb-4">
+            <div class="eco-card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h2 class="h4 mb-1">Welcome, {{ name }}</h2>
+                        <span class="level-chip">Level {{ level }}</span>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Eco points</div>
+                        <div class="xp-stat">{{ eco_points }}</div>
+                    </div>
                 </div>
-                <h5>EcoEat Student Dashboard</h5>
-                <ul class="list-group">
-                    <li class="list-group-item"><a href="/boxes" class="text-decoration-none">📦 Browse Surprise Boxes</a></li>
-                    <li class="list-group-item"><a href="/orders" class="text-decoration-none">📋 My Orders</a></li>
-                    <li class="list-group-item"><a href="/logout" class="text-decoration-none text-danger">🚪 Logout</a></li>
+                <div class="xp-panel">
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span class="text-muted">Progress to level {{ level + 1 }}</span>
+                        <span class="text-muted">{{ points_to_next }} pts to go</span>
+                    </div>
+                    <div class="xp-track">
+                        <div class="xp-fill" data-xp-pct="{{ progress_pct }}" style="width: {{ progress_pct }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="eco-card">
+            <div class="eco-card-header">
+                <h5 class="mb-0">Quick actions</h5>
+            </div>
+            <div class="eco-card-body pt-0">
+                <ul class="eco-nav-list">
+                    <li>
+                        <a href="/boxes">
+                            <i class="bi bi-box-seam"></i>
+                            Browse surprise boxes
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/orders">
+                            <i class="bi bi-receipt"></i>
+                            My orders
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/logout" class="link-danger">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

@@ -2,6 +2,8 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 
+{% block body_class %}role-admin{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -14,7 +16,11 @@
                 </div>
             </div>
             <div class="card-body">
-                <p class="text-muted mb-4">Platform-wide metrics for EcoEat campus food rescue.</p>
+                <p class="text-muted mb-3">Platform-wide metrics for EcoEat campus food rescue.</p>
+                <div class="mb-4">
+                    <a href="/admin/students" class="btn btn-outline-dark me-2">Manage Students</a>
+                    <a href="/admin/vendors" class="btn btn-outline-dark">Manage Vendors</a>
+                </div>
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-4 col-lg-2">
@@ -36,20 +42,24 @@
                         </div>
                     </div>
                     <div class="col-md-4 col-lg-2">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h6 class="text-muted">Students</h6>
-                                <h3 class="mb-0">{{ total_students }}</h3>
+                        <a href="/admin/students" class="text-decoration-none">
+                            <div class="card h-100 border-dark">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Students</h6>
+                                    <h3 class="mb-0 text-dark">{{ total_students }}</h3>
+                                </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
                     <div class="col-md-4 col-lg-2">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h6 class="text-muted">Vendors</h6>
-                                <h3 class="mb-0">{{ total_vendors }}</h3>
+                        <a href="/admin/vendors" class="text-decoration-none">
+                            <div class="card h-100 border-dark">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Vendors</h6>
+                                    <h3 class="mb-0 text-dark">{{ total_vendors }}</h3>
+                                </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
                     <div class="col-md-4 col-lg-2">
                         <div class="card h-100">

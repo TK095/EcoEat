@@ -109,10 +109,18 @@ def dashboard():
     cur.close()
     eco_points = row[0] if row else 0
 
+    level = (eco_points // 50) + 1
+    points_into_level = eco_points % 50
+    progress_pct = 100 if eco_points > 0 and points_into_level == 0 else int((points_into_level / 50) * 100)
+    points_to_next = 50 - points_into_level if points_into_level else 50
+
     return render_template(
         'dashboard.html',
         name=session['student_name'],
-        eco_points=eco_points
+        eco_points=eco_points,
+        level=level,
+        progress_pct=progress_pct,
+        points_to_next=points_to_next
     )
 
 # =========================
@@ -639,6 +647,295 @@ def admin_dashboard():
         top_students=top_students,
         top_vendors=top_vendors
     )
+
+# =========================
+# ADMIN HELPERS
+# =========================
+def require_admin():
+    if 'admin_id' not in session:
+        return redirect('/admin/login')
+    return None
+
+# =========================
+# ADMIN: MANAGE STUDENTS
+# =========================
+@app.route('/admin/students')
+def admin_students():
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        SELECT s.student_id, s.full_name, s.email, s.eco_points,
+               (SELECT COUNT(*) FROM Orders o
+                WHERE o.student_id = s.student_id AND o.order_status = 'Completed') AS completed_orders
+        FROM Students s
+        ORDER BY s.student_id
+    """)
+    students = cur.fetchall()
+    cur.close()
+
+    return render_template('admin_students.html', students=students, name=session['admin_name'])
+
+@app.route('/admin/students/add', methods=['GET', 'POST'])
+def admin_student_add():
+    guard = require_admin()
+    if guard:
+        return guard
+
+    if request.method == 'POST':
+        full_name = request.form['full_name']
+        email = request.form['email']
+        password = request.form['password']
+        eco_points = int(request.form.get('eco_points') or 0)
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT student_id FROM Students WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close()
+            flash('Email already in use.', 'danger')
+            return redirect('/admin/students/add')
+
+        try:
+            cur.execute("""
+                INSERT INTO Students (full_name, email, password, eco_points)
+                VALUES (%s, %s, %s, %s)
+            """, (full_name, email, password, eco_points))
+            mysql.connection.commit()
+            flash('Student added successfully.', 'success')
+        except IntegrityError:
+            mysql.connection.rollback()
+            flash('Email already in use.', 'danger')
+            return redirect('/admin/students/add')
+        finally:
+            cur.close()
+
+        return redirect('/admin/students')
+
+    return render_template('admin_student_form.html', is_edit=False, student=None, name=session['admin_name'])
+
+@app.route('/admin/students/edit/<int:student_id>', methods=['GET', 'POST'])
+def admin_student_edit(student_id):
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        full_name = request.form['full_name']
+        email = request.form['email']
+        eco_points = int(request.form.get('eco_points') or 0)
+        password = request.form.get('password', '').strip()
+
+        cur.execute("SELECT student_id FROM Students WHERE email = %s AND student_id != %s",
+                    (email, student_id))
+        if cur.fetchone():
+            cur.close()
+            flash('Email already in use by another student.', 'danger')
+            return redirect(f'/admin/students/edit/{student_id}')
+
+        if password:
+            cur.execute("""
+                UPDATE Students
+                SET full_name=%s, email=%s, eco_points=%s, password=%s
+                WHERE student_id=%s
+            """, (full_name, email, eco_points, password, student_id))
+        else:
+            cur.execute("""
+                UPDATE Students
+                SET full_name=%s, email=%s, eco_points=%s
+                WHERE student_id=%s
+            """, (full_name, email, eco_points, student_id))
+
+        mysql.connection.commit()
+        cur.close()
+        flash('Student updated successfully.', 'success')
+        return redirect('/admin/students')
+
+    cur.execute("SELECT student_id, full_name, email, eco_points FROM Students WHERE student_id = %s",
+                (student_id,))
+    student = cur.fetchone()
+    cur.close()
+
+    if not student:
+        flash('Student not found.', 'danger')
+        return redirect('/admin/students')
+
+    return render_template('admin_student_form.html', is_edit=True, student=student, name=session['admin_name'])
+
+@app.route('/admin/students/delete/<int:student_id>')
+def admin_student_delete(student_id):
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM Orders WHERE student_id = %s", (student_id,))
+    if cur.fetchone()[0] > 0:
+        cur.close()
+        flash('Cannot delete: student has order history.', 'warning')
+        return redirect('/admin/students')
+
+    cur.execute("SELECT COUNT(*) FROM Eco_Point_Log WHERE student_id = %s", (student_id,))
+    if cur.fetchone()[0] > 0:
+        cur.close()
+        flash('Cannot delete: student has eco point log entries.', 'warning')
+        return redirect('/admin/students')
+
+    cur.execute("DELETE FROM Students WHERE student_id = %s", (student_id,))
+    if cur.rowcount == 0:
+        cur.close()
+        flash('Student not found.', 'danger')
+        return redirect('/admin/students')
+
+    mysql.connection.commit()
+    cur.close()
+    flash('Student deleted.', 'success')
+    return redirect('/admin/students')
+
+# =========================
+# ADMIN: MANAGE VENDORS
+# =========================
+@app.route('/admin/vendors')
+def admin_vendors():
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        SELECT v.vendor_id, v.vendor_name, v.email,
+               (SELECT COUNT(*) FROM Surprise_Boxes b
+                WHERE b.vendor_id = v.vendor_id AND b.status != 'Deleted') AS active_boxes
+        FROM Vendors v
+        ORDER BY v.vendor_id
+    """)
+    vendors = cur.fetchall()
+    cur.close()
+
+    return render_template('admin_vendors.html', vendors=vendors, name=session['admin_name'])
+
+@app.route('/admin/vendors/add', methods=['GET', 'POST'])
+def admin_vendor_add():
+    guard = require_admin()
+    if guard:
+        return guard
+
+    if request.method == 'POST':
+        vendor_name = request.form['vendor_name']
+        email = request.form['email']
+        password = request.form['password']
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT vendor_id FROM Vendors WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close()
+            flash('Email already in use.', 'danger')
+            return redirect('/admin/vendors/add')
+
+        try:
+            cur.execute("""
+                INSERT INTO Vendors (vendor_name, email, password)
+                VALUES (%s, %s, %s)
+            """, (vendor_name, email, password))
+            mysql.connection.commit()
+            flash('Vendor added successfully.', 'success')
+        except IntegrityError:
+            mysql.connection.rollback()
+            flash('Email already in use.', 'danger')
+            return redirect('/admin/vendors/add')
+        finally:
+            cur.close()
+
+        return redirect('/admin/vendors')
+
+    return render_template('admin_vendor_form.html', is_edit=False, vendor=None, name=session['admin_name'])
+
+@app.route('/admin/vendors/edit/<int:vendor_id>', methods=['GET', 'POST'])
+def admin_vendor_edit(vendor_id):
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        vendor_name = request.form['vendor_name']
+        email = request.form['email']
+        password = request.form.get('password', '').strip()
+
+        cur.execute("SELECT vendor_id FROM Vendors WHERE email = %s AND vendor_id != %s",
+                    (email, vendor_id))
+        if cur.fetchone():
+            cur.close()
+            flash('Email already in use by another vendor.', 'danger')
+            return redirect(f'/admin/vendors/edit/{vendor_id}')
+
+        if password:
+            cur.execute("""
+                UPDATE Vendors
+                SET vendor_name=%s, email=%s, password=%s
+                WHERE vendor_id=%s
+            """, (vendor_name, email, password, vendor_id))
+        else:
+            cur.execute("""
+                UPDATE Vendors
+                SET vendor_name=%s, email=%s
+                WHERE vendor_id=%s
+            """, (vendor_name, email, vendor_id))
+
+        mysql.connection.commit()
+        cur.close()
+        flash('Vendor updated successfully.', 'success')
+        return redirect('/admin/vendors')
+
+    cur.execute("SELECT vendor_id, vendor_name, email FROM Vendors WHERE vendor_id = %s", (vendor_id,))
+    vendor = cur.fetchone()
+    cur.close()
+
+    if not vendor:
+        flash('Vendor not found.', 'danger')
+        return redirect('/admin/vendors')
+
+    return render_template('admin_vendor_form.html', is_edit=True, vendor=vendor, name=session['admin_name'])
+
+@app.route('/admin/vendors/delete/<int:vendor_id>')
+def admin_vendor_delete(vendor_id):
+    guard = require_admin()
+    if guard:
+        return guard
+
+    cur = mysql.connection.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM Surprise_Boxes WHERE vendor_id = %s", (vendor_id,))
+    if cur.fetchone()[0] > 0:
+        cur.close()
+        flash('Cannot delete: vendor has surprise boxes on record.', 'warning')
+        return redirect('/admin/vendors')
+
+    cur.execute("""
+        SELECT COUNT(*) FROM Orders o
+        JOIN Surprise_Boxes b ON o.box_id = b.box_id
+        WHERE b.vendor_id = %s
+    """, (vendor_id,))
+    if cur.fetchone()[0] > 0:
+        cur.close()
+        flash('Cannot delete: vendor has order history.', 'warning')
+        return redirect('/admin/vendors')
+
+    cur.execute("DELETE FROM Vendors WHERE vendor_id = %s", (vendor_id,))
+    if cur.rowcount == 0:
+        cur.close()
+        flash('Vendor not found.', 'danger')
+        return redirect('/admin/vendors')
+
+    mysql.connection.commit()
+    cur.close()
+    flash('Vendor deleted.', 'success')
+    return redirect('/admin/vendors')
 
 # =========================
 # ADMIN LOGOUT

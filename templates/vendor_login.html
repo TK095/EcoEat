@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Vendor Login{% endblock %}
+
+{% block body_class %}role-vendor{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4>🌱 Vendor Login</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" name="email" class="form-control" required placeholder="cafe@ecoeat.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Login</button>
+                </form>
+                <hr>
+                <div class="text-center">
+                    <small class="text-muted">Don't have a vendor account? Contact the administrator.</small>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="/" class="text-decoration-none">← Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

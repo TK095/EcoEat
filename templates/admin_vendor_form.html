@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Vendor{% else %}Add Vendor{% endif %}{% endblock %}
+
+{% block body_class %}role-admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">{% if is_edit %}Edit Vendor{% else %}Add Vendor{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Vendor Name</label>
+                        <input type="text" name="vendor_name" class="form-control" required
+                               value="{{ vendor[1] if vendor else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" required
+                               value="{{ vendor[2] if vendor else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password{% if is_edit %} <small class="text-muted">(leave blank to keep current)</small>{% endif %}</label>
+                        <input type="password" name="password" class="form-control" {% if not is_edit %}required{% endif %}>
+                    </div>
+                    <button type="submit" class="btn btn-success">{% if is_edit %}Save Changes{% else %}Add Vendor{% endif %}</button>
+                    <a href="/admin/vendors" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
